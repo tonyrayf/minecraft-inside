@@ -1,0 +1,332 @@
+$(document).ready(function($)
+{
+    var commFld=$('.comment-form__text'), commForm=$(".comment-form"), isCtrl=false;
+
+    // Публикация
+    commForm.submit(function(){
+        let $form = $(this);
+
+        params = $form.find('input[type="file"]').length ? new FormData($form[0]) : $form.serialize();
+        comment(params);
+
+        return false;
+    });
+
+    // Смайлы
+    $(".comment-form__smileys img").click(function() {
+        var text = $(this).attr('alt');
+        tempdiv = $('<div/>');
+        text = tempdiv.text(text).html();
+        tempdiv.remove();
+        commFld.insertAtCaret(text);
+    }).css('cursor', 'pointer');
+
+    $(".comment-form__smileys-show-all").click(function() {
+        $(this).hide();
+        $(".comment-form__smileys-extend").show();
+    });
+
+    // Ответ
+    $('.comment .comment__reply').click(function() {
+        $('html, body').scrollTop($("#comment-form").offset().top);
+        $('#commentform-source').val('[user]' + $(this).data('name') + '[/user], ').focus();
+        return false;
+    });
+
+    // Расширение комментария
+    $('.comment.expander').each(function( index ) {
+         $this = $(this);
+
+         if ($this.find('.comment__text').height() > 145)
+         {
+             $this.addClass('expander_on');
+         }
+         else
+         {
+            $this.removeClass('expander');
+            $this.find('.expander__toggle').remove();
+        }
+    });
+
+    $('.comment').on('click', '.expander__toggle', function(){
+
+        $expander = $(this).parents('.expander');
+
+        if ($expander.hasClass('expander_on'))
+        {
+            $expander.removeClass('expander_on');
+            $(this).html('Свернуть');
+        }
+        else
+        {
+            $expander.addClass('expander_on');
+            $(this).html('Читать дальше');
+        }
+    });
+
+    // Редактор
+    commFld.insert=function (before,after,deselect)
+    {
+        var ta=this.get(0), sel, txt, startPos, endPos, scrollTop;
+        if(deselect==undefined) deselect=true;
+        if(!after) after='';
+        this.focus();
+
+        try
+        {
+            //normal browsers support
+            if (ta.selectionStart || ta.selectionStart=='0')
+            {
+                startPos=ta.selectionStart; endPos=ta.selectionEnd; scrollTop=ta.scrollTop;
+                ta.value=ta.value.substring(0,startPos)+before+ta.value.substring(startPos,endPos)
+                    +after+ta.value.substring(endPos,ta.value.length);
+
+                if(deselect)
+                {
+                    if(startPos==endPos) ta.selectionStart=startPos+before.length;
+                    else ta.selectionStart=endPos+before.length+after.length;
+                    ta.selectionEnd=ta.selectionStart;
+                }
+                else
+                {
+                    ta.selectionStart=startPos;
+                    ta.selectionEnd=before.length+after.length+endPos;
+                }
+                ta.scrollTop=scrollTop;
+            }
+            //fucking IE support
+            else if(document.selection)
+            {
+                sel=document.selection.createRange(); txt=sel.text;
+                sel.text=before+txt+after;
+
+                sel=document.selection.createRange();
+                if(deselect)
+                {
+                    if(!txt.length)
+                    {
+                        if(after.length)
+                        {
+                            sel.moveStart('character',-after.length);
+                            sel.moveEnd('character',-after.length);
+                        }
+                    }
+                    else sel.moveStart('character',before.length+txt.length+after.length);
+                }
+                else if(!txt.length) sel.moveStart('character',-(before.length+after.length));
+                sel.select();
+            }
+            else throw 'Unsupported browser';
+        }
+        catch(err)
+        {
+            alert(err);
+        }
+
+        this.focus();
+        return this;
+    };
+
+    commFld.insURL=function()
+    {
+        var url=$.trim(prompt("Введите URL","http://")), re=/^https?:\/\/(?:www\.)?[\w.\-]+\.\w{2,4}[^\s]*$/i;
+
+        if(url)
+        {
+            if(re.test(url)) this.insert('[url='+url+']','[/url]');
+            else alert('URL не соответствует формату');
+        }
+
+        return this;
+    };
+
+    commFld.insImg=function()
+    {
+        var url=$.trim(prompt("Введите URL изображения","http://")), re=/^https?:\/\/(?:www\.)?[\w.\-]+\.\w{2,4}[^\s]*\.(?:jpe?g|gif|png)$/i;
+
+        if(url)
+        {
+            if(re.test(url)) this.insert('[img]'+url+'[/img]','');
+            else alert('URL не соответствует формату');
+        }
+
+        return this;
+    };
+
+    commFld.insYoutube=function(HD)
+    {
+        var url=$.trim(prompt("Введите ссылку на ролик вида\nhttp://www.youtube.com/watch?v=OWfksMD4PAg","http://")),
+            re=/^http:\/\/(?:www\.)?youtube\.com\/watch\?v=[\w\-]+/i;
+
+        if(url)
+        {
+            url=url.match(re);
+            if(url && url[0]) this.insert(url[0].replace('http://','httpv'+(HD? 'h':'')+'://'),'');
+            else alert('URL не соответствует формату');
+        }
+
+        return this;
+    };
+
+    commFld.bind(
+    {
+        keyup:   function(event) {if(event.keyCode==17) isCtrl=false;},
+        keydown: function(event)
+        {
+            if(event.keyCode==17) isCtrl=true;
+            if(isCtrl)
+            {
+                var capt=true;
+                switch(event.keyCode)
+                {
+                    case 66: //b
+                        commFld.insert('[b]','[/b]');
+                        break;
+                    case 73: //i
+                        commFld.insert('[i]','[/i]');
+                        break;
+                    case 85: //u
+                        commFld.insert('[u]','[/u]');
+                        break;
+                    case 83: //s
+                        commFld.insert('[s]','[/s]');
+                        break;
+                    default: capt=false;
+                }
+                if(capt) event.preventDefault();
+            }
+        }
+    });
+
+    $('#kern-btn-bold').click(function() {commFld.insert('[b]','[/b]');}).attr('title','Выделить текст жирным [Ctrl+B]');
+    $('#kern-btn-italic').click(function() {commFld.insert('[i]','[/i]');}).attr('title','Выделить текст курсивом [Ctrl+I]');
+    $('#kern-btn-underline').click(function() {commFld.insert('[u]','[/u]');}).attr('title','Подчеркнуть текст [Ctrl+U]');
+    $('#kern-btn-strike').click(function() {commFld.insert('[s]','[/s]');}).attr('title','Зачеркнуть текст [Ctrl+S]');
+    $('#kern-btn-url').click(function() {commFld.insURL().focus();}).attr('title','Вставить ссылку');
+    $('#kern-btn-img').click(function() {commFld.insImg().focus();}).attr('title','Вставить изображение');
+    $('#kern-btn-yt').click(function() {commFld.insYoutube().focus();}).attr('title','Вставить видео с YouTube');
+    $('#kern-btn-ythd').click(function() {commFld.insYoutube(true).focus();}).attr('title','Вставить широкоформатное HD видео с YouTube');
+    $('#kern-btn-clear').click(function() {commFld.val('').focus();}).attr('title','Очистить текст комментария');
+
+    $("div.one-com a.name").click(function() {commFld.insert('[b]'+$(this).text().replace(/:\s*$/,'')+'[/b], ')})
+        .attr('title','Кликните по имени пользователя, чтобы вставить обращение').css('cursor','pointer');
+
+    $("div.one-com a.quote-lnk").click(function()
+    {
+        var id=$(this).parents("div.one-com").attr('id');
+
+        id=id.match(/\d+/);
+        if(!id || !id[0]) return;
+
+        commFld.insert('[quote='+id+']Текст цитируемого коммента будет вставлен автоматически[/quote]');
+    })
+        .attr('title','Цитировать комментарий').css('cursor','pointer');
+});
+
+function comment(params)
+{
+    if ($.isEmptyObject(params)) return false;
+
+    let query = {
+        type        : 'POST',
+        dataType    : "json",
+        cache       : false,
+        url         : '/comment/add/',
+        data        : params,
+        success: function(data)
+        {
+            if(data.result === "success")
+            {
+                location.reload();
+            }
+            else if (data.result == 'confirm')
+            {
+                confirm_email('comment', params)
+            }
+            else
+            {
+                $(".comment-form__errors").html(data.msg).show();
+            }
+        }
+    }
+
+    if (params instanceof FormData)
+    {
+        query.contentType = false;
+        query.processData = false;
+        query.enctype = 'multipart/form-data';
+    }
+
+    $.ajax(query);
+}
+
+function toggleLocalizationForm(post_id)
+{
+    let $localization_form = $('#localization-form');
+
+    if ($localization_form.html() == '')
+    {
+        $localization_form.show().html('Загрузка...');
+
+        $.ajax({
+            url: '/comment/localization/' + post_id + '/?form',
+            dataType: 'json',
+            success: function(data) {
+                if (data.status = 'success')
+                {
+                    $localization_form.html(data.html);
+                }
+            },
+            error: function (e) { $localization_form.hide().html(''); }
+        });
+    }
+    else
+    {
+        $localization_form.hide().html('');
+    }
+}
+
+jQuery.fn.extend({
+    insertAtCaret: function(sm){
+        spaceSmiley = function(smiley, pre) {
+            smiley = smiley + ' ';
+            var lastPreSmileyChar = pre.substr(pre.length - 1, 1);
+            if (lastPreSmileyChar && lastPreSmileyChar != ' '
+                && lastPreSmileyChar.charCodeAt(0) != 10
+                && lastPreSmileyChar.charCodeAt(0) != 13) {
+                smiley = ' '+smiley;
+            }
+            return smiley;
+        }
+        this.focus();
+        if (document.selection && !window.opera) {
+            // IE
+            var sel = document.selection.createRange();
+            var sel2 = sel.duplicate();
+            sel2.moveToElementText(this[0]);
+            sel2.setEndPoint('StartToEnd', sel);
+            selEnd = this.val().length - sel2.text.length;
+            sel2.setEndPoint('StartToStart', sel);
+            selStart = this.val().length - sel.text.length;
+            pre = this.val().substring(0, selStart);
+            sm = spaceSmiley(sm, pre);
+            sel.text = sm;
+        }
+        else if (typeof this[0].selectionStart != "undefined") {
+            selStart = this[0].selectionStart;
+            selEnd = this[0].selectionEnd;
+            pre = this.val().substring(0, selStart);
+            post = this.val().substring(selEnd);
+            // if the character before the smiley is not a space, let's
+            // add one before it. And add a space to the end.
+            sm = spaceSmiley(sm, pre);
+            var risultato = pre + sm + post;
+            this.val(risultato);
+            this[0].selectionEnd = this[0].selectionStart = selStart + sm.length;
+        }
+        else {
+            sm = spaceSmiley(sm, this.val());
+            this.val(this.val() + sm)
+        }
+    }
+});
